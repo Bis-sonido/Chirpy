@@ -2,12 +2,10 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"sync/atomic"
 
 	"github.com/Bis-sonido/Chirpy/internal/database"
@@ -15,17 +13,17 @@ import (
 	_ "github.com/lib/pq"
 )
 
-var badWords = []string{"kerfuffle", "sharbert", "fornax"}
-
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
+	platform	   string
 }
 
 func main() {
 
 	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
+	dbPlatform := os.Getenv("PLATFORM")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatal("Error connecting to the database:", err)
@@ -38,6 +36,7 @@ func main() {
 
 	cfg := &apiConfig{
 		db: dbQueries,
+		platform: dbPlatform,
 	}
 
 	mux := http.NewServeMux()
@@ -46,7 +45,10 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", cfg.handlerHits)
 	mux.HandleFunc("POST /admin/reset", cfg.handlerReset)
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
-	mux.HandleFunc("POST /api/validate_chirp", handlerJson)
+	mux.HandleFunc("POST /api/chirps", cfg.handlerCreateChirp)
+	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
+	mux.HandleFunc("GET /api/chirps", cfg.handlerGetChirps)
+	
 
 	server := &http.Server{
 		Addr:    ":8080",
@@ -89,46 +91,20 @@ func (cfg *apiConfig) handlerHits(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
+	if cfg.platform != "dev" {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("Reset endpoint is only available in dev environment"))
+		return
+	}
+
 	cfg.fileserverHits.Store(0)
-	fmt.Fprintf(w, "Hits reset to 0\n")
-}
-
-func handlerJson(w http.ResponseWriter, r *http.Request) {
-	type jsonRequest struct {
-		Body  string `json:"body"`
-		Error string `json:"error"`
-	}
-
-	decoder := json.NewDecoder(r.Body)
-	var params jsonRequest
-	err := decoder.Decode(&params)
+	err := cfg.db.ResetUsers(r.Context())
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid JSON payload")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("failed to reset the database: " + err.Error()))
 		return
 	}
-	if len(params.Body) > 140 {
-		respondWithError(w, http.StatusBadRequest, "Post must be less than 140 characters")
-		return
-	}
-
-	splitBody := strings.Split(params.Body, " ")
-	for i, word := range splitBody {
-		for _, badWord := range badWords {
-			if strings.ToLower(word) == strings.ToLower(badWord) {
-				// Replace the bad word with asterisks
-				splitBody[i] = "****"
-			}
-		}
-	}
-	params.Body = strings.Join(splitBody, " ")
-
-	type jsonResponse struct {
-		CleanedBody string `json:"cleaned_body"`
-	}
-
-	respBody := jsonResponse{
-		CleanedBody: params.Body,
-	}
-
-	respondWithJSON(w, http.StatusOK, respBody)
+	
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Users table has been reset"))
 }
