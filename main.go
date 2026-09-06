@@ -16,7 +16,8 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
-	platform	   string
+	platform       string
+	secretKey      string
 }
 
 func main() {
@@ -24,6 +25,7 @@ func main() {
 	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
 	dbPlatform := os.Getenv("PLATFORM")
+	dbSecretKey := os.Getenv("SECRET_KEY")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatal("Error connecting to the database:", err)
@@ -35,8 +37,9 @@ func main() {
 	const filePath = "."
 
 	cfg := &apiConfig{
-		db: dbQueries,
-		platform: dbPlatform,
+		db:        dbQueries,
+		platform:  dbPlatform,
+		secretKey: dbSecretKey,
 	}
 
 	mux := http.NewServeMux()
@@ -48,7 +51,8 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", cfg.handlerCreateChirp)
 	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
 	mux.HandleFunc("GET /api/chirps", cfg.handlerGetChirps)
-	
+	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.handlerGetChirp)
+	mux.HandleFunc("POST /api/login", cfg.handlerLogin)
 
 	server := &http.Server{
 		Addr:    ":8080",
@@ -104,7 +108,7 @@ func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("failed to reset the database: " + err.Error()))
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Users table has been reset"))
 }

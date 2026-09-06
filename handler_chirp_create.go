@@ -3,27 +3,27 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 	"strings"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/Bis-sonido/Chirpy/internal/database"
+	"github.com/google/uuid"
+	"github.com/Bis-sonido/Chirpy/internal/auth"
 )
 
 var badWords = []string{"kerfuffle", "sharbert", "fornax"}
 
-func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request){
-	type createChirpRequest struct{
-		Body string `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
+	type createChirpRequest struct {
+		Body   string    `json:"body"`
 	}
 
 	type createChirpResponse struct {
-		ID uuid.UUID `json:"id"`
+		ID        uuid.UUID `json:"id"`
 		CreatedAt time.Time `json:"created_at"`
 		UpdatedAt time.Time `json:"updated_at"`
-		Body string `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
+		Body      string    `json:"body"`
+		UserID    uuid.UUID `json:"user_id"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -49,9 +49,25 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	}
 	params.Body = strings.Join(splitBody, " ")
 
+	authBearer, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token format")
+		return
+	}
+	if authBearer == "" {
+		respondWithError(w, http.StatusUnauthorized, "Missing or invalid Authorization header")
+		return
+	}
+
+	userID, err := auth.ValidateJWT(authBearer, cfg.secretKey)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "Invalid token")
+		return
+	}
+
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
-		Body: params.Body,
-		UserID: params.UserID,
+		Body:   params.Body,
+		UserID: userID,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to create chirp")
@@ -59,11 +75,11 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	}
 
 	respondWithJSON(w, http.StatusCreated, createChirpResponse{
-		ID: chirp.ID,
+		ID:        chirp.ID,
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,
-		Body: chirp.Body,
-		UserID: chirp.UserID,
+		Body:      chirp.Body,
+		UserID:    chirp.UserID,
 	})
 
 }
