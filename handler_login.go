@@ -7,16 +7,14 @@ import (
 
 	"github.com/Bis-sonido/Chirpy/internal/auth"
 	"github.com/google/uuid"
+	"github.com/Bis-sonido/Chirpy/internal/database"
 )
 
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 
-	expiresIn := 1 * time.Hour
-
 	type createUserLogin struct {
 		Password         string `json:"password"`
 		Email            string `json:"email"`
-		ExpiresInSeconds *int   `json:"expires_in_seconds"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -27,22 +25,13 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if params.ExpiresInSeconds != nil {
-		maxExpiresIn := 1 * time.Hour
-		clientExpiresIn := time.Duration(*params.ExpiresInSeconds) * time.Second
-		if clientExpiresIn > maxExpiresIn {
-			expiresIn = maxExpiresIn
-		} else {
-			expiresIn = clientExpiresIn
-		}
-	}
-
 	type createUserLoginResponse struct {
 		ID        uuid.UUID `json:"id"`
 		CreatedAt time.Time `json:"created_at"`
 		UpdatedAt time.Time `json:"updated_at"`
 		Email     string    `json:"email"`
 		Token     string    `json:"token"`
+		RefreshToken string `json:"refresh_token"`
 	}
 
 	user, err := cfg.db.GetUserByEmail(r.Context(), params.Email)
@@ -61,16 +50,32 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := auth.MakeJWT(user.ID, cfg.secretKey, expiresIn)
+	token, err := auth.MakeJWT(user.ID, cfg.secretKey, time.Hour)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Failed to create JWT")
 		return
 	}
+
+	randomStringToken := auth.MakeRefreshToken()
+
+	tokenTimeline := time.Now().UTC().Add(60 * 24 * time.Hour) // 60 days from now
+
+	refreshedToken, err := cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:  randomStringToken,
+		UserID: user.ID,
+		ExpiresAt: tokenTimeline,
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Failed to create refresh token")
+		return
+	}
+
 	respondWithJSON(w, http.StatusOK, createUserLoginResponse{
 		ID:        user.ID,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email:     user.Email,
 		Token:     token,
+		RefreshToken: refreshedToken.Token,
 	})
 }

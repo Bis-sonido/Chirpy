@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"fmt"
+	"crypto/rand"
+	"encoding/hex"
 
 	"github.com/alexedwards/argon2id"
 	"github.com/golang-jwt/jwt/v5"
@@ -83,4 +85,13 @@ func GetBearerToken(headers http.Header) (string, error) {
 	}
 
 	return strippedToken, nil
+}
+
+func MakeRefreshToken() string {
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+	if err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(key)
 }
