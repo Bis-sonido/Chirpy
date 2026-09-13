@@ -1,13 +1,13 @@
 package auth
 
 import (
-	"log"
-	"time"
-	"net/http"
-	"strings"
-	"fmt"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"log"
+	"net/http"
+	"strings"
+	"time"
 
 	"github.com/alexedwards/argon2id"
 	"github.com/golang-jwt/jwt/v5"
@@ -85,6 +85,19 @@ func GetBearerToken(headers http.Header) (string, error) {
 	}
 
 	return strippedToken, nil
+}
+
+func GetAPIKey(headers http.Header) (string, error){
+	authHeader := headers.Get("Authorization")
+	if authHeader == "" {
+		return "", fmt.Errorf("missing Authorization header")
+	}
+
+	strippedAPIKey := strings.TrimSpace(strings.TrimPrefix(authHeader, "ApiKey "))
+	if strippedAPIKey == "" {
+		return "", fmt.Errorf("missing APIKey")
+	}
+	return strippedAPIKey, nil
 }
 
 func MakeRefreshToken() string {

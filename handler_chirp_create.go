@@ -6,16 +6,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Bis-sonido/Chirpy/internal/auth"
 	"github.com/Bis-sonido/Chirpy/internal/database"
 	"github.com/google/uuid"
-	"github.com/Bis-sonido/Chirpy/internal/auth"
 )
 
 var badWords = []string{"kerfuffle", "sharbert", "fornax"}
 
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 	type createChirpRequest struct {
-		Body   string    `json:"body"`
+		Body string `json:"body"`
 	}
 
 	type createChirpResponse struct {

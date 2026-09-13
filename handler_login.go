@@ -6,15 +6,16 @@ import (
 	"time"
 
 	"github.com/Bis-sonido/Chirpy/internal/auth"
-	"github.com/google/uuid"
 	"github.com/Bis-sonido/Chirpy/internal/database"
+	"github.com/google/uuid"
 )
 
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 
 	type createUserLogin struct {
-		Password         string `json:"password"`
-		Email            string `json:"email"`
+		Password    string `json:"password"`
+		Email       string `json:"email"`
+		IsChirpyRed bool   `json:"is_chirpy_red"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -26,12 +27,13 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type createUserLoginResponse struct {
-		ID        uuid.UUID `json:"id"`
-		CreatedAt time.Time `json:"created_at"`
-		UpdatedAt time.Time `json:"updated_at"`
-		Email     string    `json:"email"`
-		Token     string    `json:"token"`
-		RefreshToken string `json:"refresh_token"`
+		ID           uuid.UUID `json:"id"`
+		CreatedAt    time.Time `json:"created_at"`
+		UpdatedAt    time.Time `json:"updated_at"`
+		Email        string    `json:"email"`
+		Token        string    `json:"token"`
+		RefreshToken string    `json:"refresh_token"`
+		IsChirpyRed  bool      `json:"is_chirpy_red"`
 	}
 
 	user, err := cfg.db.GetUserByEmail(r.Context(), params.Email)
@@ -61,8 +63,8 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	tokenTimeline := time.Now().UTC().Add(60 * 24 * time.Hour) // 60 days from now
 
 	refreshedToken, err := cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
-		Token:  randomStringToken,
-		UserID: user.ID,
+		Token:     randomStringToken,
+		UserID:    user.ID,
 		ExpiresAt: tokenTimeline,
 	})
 	if err != nil {
@@ -71,11 +73,12 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondWithJSON(w, http.StatusOK, createUserLoginResponse{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
-		Token:     token,
+		ID:           user.ID,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
+		Email:        user.Email,
+		Token:        token,
 		RefreshToken: refreshedToken.Token,
+		IsChirpyRed:  user.IsChirpyRed,
 	})
 }

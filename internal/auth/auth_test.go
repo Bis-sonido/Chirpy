@@ -2,9 +2,9 @@ package auth
 
 import (
 	"github.com/google/uuid"
+	"net/http"
 	"testing"
 	"time"
-	"net/http"
 )
 
 func TestHashPassword(t *testing.T) {
@@ -83,32 +83,32 @@ func TestCreateAndValidateJWT(t *testing.T) {
 }
 
 func TestValidateGetBearerToken(t *testing.T) {
-	
+
 	type testCase struct {
-		name string
-		headers http.Header
+		name          string
+		headers       http.Header
 		expectedToken string
-		expectError bool
+		expectError   bool
 	}
 
 	testCases := []testCase{
 		{
-			name: "Valid Bearer Token",
-			headers: http.Header{"Authorization": []string{"Bearer validToken"}},
+			name:          "Valid Bearer Token",
+			headers:       http.Header{"Authorization": []string{"Bearer validToken"}},
 			expectedToken: "validToken",
-			expectError: false,
+			expectError:   false,
 		},
 		{
-			name: "Missing Authorization Header",
-			headers: http.Header{},
+			name:          "Missing Authorization Header",
+			headers:       http.Header{},
 			expectedToken: "",
-			expectError: true,
+			expectError:   true,
 		},
 		{
-			name: "Invalid Token Format",
-			headers: http.Header{"Authorization": []string{"InvalidFormat"}},
+			name:          "Invalid Token Format",
+			headers:       http.Header{"Authorization": []string{"InvalidFormat"}},
 			expectedToken: "",
-			expectError: true,
+			expectError:   true,
 		},
 	}
 

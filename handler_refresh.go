@@ -33,7 +33,7 @@ func (cfg *apiConfig) handlerRefresh(w http.ResponseWriter, r *http.Request) {
 	type refreshTokenResponse struct {
 		Token string `json:"token"`
 	}
-	
+
 	respondWithJSON(w, http.StatusOK, refreshTokenResponse{
 		Token: token,
 	})

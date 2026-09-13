@@ -5,13 +5,33 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/Bis-sonido/Chirpy/internal/database"
 )
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
-	chirps, err := cfg.db.GetChirps(r.Context())
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Failed to get chirps")
-		return
+	s := r.URL.Query().Get("author_id")
+
+	var chirps []database.Chirp
+	if s != "" {
+		uuidAuthorID, err := uuid.Parse(s)
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "invalid author_id parameter")
+			return
+		}
+
+		authorChirps, err := cfg.db.GetChirpsByUserId(r.Context(), uuidAuthorID)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Failed to get chirps by user ID")
+			return
+		}
+		chirps = authorChirps
+	} else {
+		allChirps, err := cfg.db.GetChirps(r.Context())
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, "Failed to get chirps")
+			return
+		}
+		chirps = allChirps
 	}
 
 	type Chirp struct {
