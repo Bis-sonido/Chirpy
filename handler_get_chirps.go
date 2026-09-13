@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"time"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/Bis-sonido/Chirpy/internal/database"
@@ -10,6 +11,7 @@ import (
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 	s := r.URL.Query().Get("author_id")
+	sortOrder := r.URL.Query().Get("sort")
 
 	var chirps []database.Chirp
 	if s != "" {
@@ -32,6 +34,18 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		chirps = allChirps
+	}
+
+	if sortOrder == "asc" || sortOrder == "" {
+		sort.Slice(chirps, func(i, j int) bool {
+			return chirps[i].CreatedAt.Before(chirps[j].CreatedAt)
+		})
+	}
+
+	if sortOrder == "desc" {
+		sort.Slice(chirps, func(i, j int) bool {
+			return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
+		})
 	}
 
 	type Chirp struct {
